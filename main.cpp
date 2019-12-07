@@ -8,8 +8,14 @@
 #include <cstring>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <unordered_map>
+#include <mutex>
+#include <csignal>
 
-int open_listen_fd(char* port) {
+std::unordered_map<int, std::string> buffers;
+volatile bool cancel = false;
+
+int open_listen_fd(char *port) {
   addrinfo hints, *result_list, *ptr;
   int listen_fd, opt_val = 1;
 
@@ -46,18 +52,7 @@ int open_listen_fd(char* port) {
   return listen_fd;
 }
 
-int echo(int connfd) {
-  const int BLOCK_SIZE = 1024;
-  char buf[BLOCK_SIZE];
-  int n = recv(connfd, buf, BLOCK_SIZE, 0);
-
-  if (n <= 0) {
-    return n;
-  }
-
-  std::string hostname(buf, buf + n - 2);
-  std::clog << hostname << std::endl;
-
+int gai(const std::string &hostname, int connfd) {
   addrinfo hints, *result_list, *ptr;
   memset(&hints, 0, sizeof(addrinfo));
   hints.ai_socktype = SOCK_STREAM;
@@ -69,12 +64,60 @@ int echo(int connfd) {
     return 1;
   }
 
-  for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
-    sockaddr_in *ip_addres = (struct sockaddr_in *)ptr->ai_addr;
-    std::string ip(inet_ntoa(ip_addres->sin_addr));
-    ip += "\r\n";
+  char line_separator[2] = {'\r', '\n'};
 
+  for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
+    char *astring = nullptr;
+
+    switch (ptr->ai_family) {
+      case AF_INET: {
+        astring = new char[INET_ADDRSTRLEN];
+        auto *ip_address = (sockaddr_in *) ptr->ai_addr;
+        auto *result = inet_ntop(AF_INET, &ip_address->sin_addr, astring, INET_ADDRSTRLEN);
+        if (result == nullptr) {
+          delete[] astring;
+          astring = nullptr;
+        }
+        break;
+      }
+      case AF_INET6: {
+        astring = new char[INET6_ADDRSTRLEN];
+        auto *ip_addres = (sockaddr_in6 *) ptr->ai_addr;
+        auto *result = inet_ntop(AF_INET6, &ip_addres->sin6_addr, astring, INET6_ADDRSTRLEN);
+        if (result == nullptr) {
+          delete[] astring;
+          astring = nullptr;
+        }
+        break;
+      }
+    }
+
+    std::string ip(astring);
+    delete[] astring;
     send(connfd, ip.c_str(), ip.size(), 0);
+    send(connfd, line_separator, sizeof(line_separator), 0);
+  }
+
+  send(connfd, line_separator, sizeof(line_separator), 0);
+}
+
+int echo(int connfd) {
+  const int BLOCK_SIZE = 1024;
+  char buf[BLOCK_SIZE];
+  int n = recv(connfd, buf, BLOCK_SIZE, 0);
+
+  if (0 < n) {
+    buffers[connfd].reserve(buffers[connfd].size() + n);
+    for (int i = 0; i < n; i++) {
+      buffers[connfd].push_back(buf[i]);
+
+      if (2 <= buffers[connfd].size() && *(buffers[connfd].end() - 2) == '\r' && *(buffers[connfd].end() - 1) == '\n') {
+        gai(std::string(buffers[connfd].begin(), buffers[connfd].end() - 2), connfd);
+        std::cout << connfd << " says: " << std::string(buffers[connfd].begin(), buffers[connfd].end() - 2)
+                  << std::endl;
+        buffers[connfd].clear();
+      }
+    }
   }
 
   return n;
@@ -107,6 +150,9 @@ int main() {
         clientlen = sizeof(struct sockaddr_storage);
         int connfd = accept(listenfd, (sockaddr *) &clientaddr, &clientlen);
 
+        auto *ip_addres = (sockaddr_in *) &clientaddr;
+        std::clog << "New connection " << connfd << " ip: " << inet_ntoa(ip_addres->sin_addr) << std::endl;
+
         epoll_event event;
         memset(&event, 0, sizeof(epoll_event));
         event.events = EPOLLIN;
@@ -116,8 +162,10 @@ int main() {
       } else {
         int result = echo(events[i].data.fd);
         if (result <= 0) {
+          buffers[events[i].data.fd].clear();
           close(events[i].data.fd);
           epoll_ctl(epfd, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
+          std::clog << "Disconnected " << events[i].data.fd << std::endl;
         }
       }
     }
