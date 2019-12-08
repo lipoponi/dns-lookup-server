@@ -6,10 +6,10 @@
 
 int main() {
   BaseServer *server = new GaiServer();
-  server->setup("localhost", "15213");
-  while (true) {
-    int rv = server->exec();
-    if (rv == -1) break;
+  int rv = server->setup("localhost", "15213");
+  while (rv != -1) {
+    rv = server->exec();
   }
+
   return 0;
 }

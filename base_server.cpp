@@ -13,29 +13,15 @@ int BaseServer::setup(const std::string &hostname, const std::string &port) {
   int rv = getaddrinfo(hostname.c_str(), port.c_str(), &hints, &result_list);
   if (rv < 0) {
     std::cerr << gai_strerror(rv) << std::endl;
-    return EXIT_FAILURE;
+    return -1;
   }
 
   for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
-    switch (ptr->ai_family) {
-      case AF_INET: {
-        char astring[INET_ADDRSTRLEN];
-        auto *ip_address = (sockaddr_in *) ptr->ai_addr;
-        auto *result = inet_ntop(AF_INET, &ip_address->sin_addr, astring, INET_ADDRSTRLEN);
-        if (result != nullptr) {
-          std::clog << "Trying " << astring << std::endl;
-        }
-        break;
-      }
-      case AF_INET6: {
-        char astring[INET6_ADDRSTRLEN];
-        auto *ip_addres = (sockaddr_in6 *) ptr->ai_addr;
-        auto *result = inet_ntop(AF_INET6, &ip_addres->sin6_addr, astring, INET6_ADDRSTRLEN);
-        if (result != nullptr) {
-          std::clog << "Trying " << astring << std::endl;
-        }
-        break;
-      }
+    char astring[INET_ADDRSTRLEN];
+    auto *ip_address = (sockaddr_in *) ptr->ai_addr;
+    auto *result = inet_ntop(AF_INET, &ip_address->sin_addr, astring, INET_ADDRSTRLEN);
+    if (result != nullptr) {
+      std::clog << "Trying " << astring << std::endl;
     }
 
     int sock_fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
@@ -60,14 +46,14 @@ int BaseServer::setup(const std::string &hostname, const std::string &port) {
   freeaddrinfo(result_list);
   if (listen_fd == -1) {
     std::cerr << "No suitable configurations" << std::endl;
-    return EXIT_FAILURE;
+    return -1;
   }
 
   if (listen(listen_fd, 1024) == -1) {
     perror("listen");
     close(listen_fd);
     listen_fd = -1;
-    return EXIT_FAILURE;
+    return -1;
   }
 
   epoll_fd = epoll_create1(0);
@@ -75,23 +61,21 @@ int BaseServer::setup(const std::string &hostname, const std::string &port) {
     perror("epoll_create1");
     close(listen_fd);
     listen_fd = -1;
-    return EXIT_FAILURE;
+    return -1;
   }
 
-  struct epoll_event listen_event;
-  listen_event.events = EPOLLIN;
-  listen_event.data.fd = listen_fd;
+  struct epoll_event listen_event{.events = EPOLLIN, .data = {.fd = listen_fd}};
   rv = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &listen_event);
 
   if (rv == -1) {
     perror("epoll_ctl");
     close(epoll_fd);
     close(listen_fd);
-    epoll_fd = listen_fd= -1;
-    return EXIT_FAILURE;
+    epoll_fd = listen_fd = -1;
+    return -1;
   }
 
-  return EXIT_SUCCESS;
+  return 0;
 }
 
 int BaseServer::exec() {
