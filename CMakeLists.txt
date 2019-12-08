@@ -3,5 +3,8 @@ project(dns_lookup_server)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(dns_lookup_server main.cpp)
-add_executable(scratch scratch.cpp)
+set(REQ_FILES
+        base_server.cpp
+        gai_server.cpp)
+
+add_executable(dns-lookup-server main.cpp ${REQ_FILES})
