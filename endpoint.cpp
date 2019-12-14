@@ -28,10 +28,15 @@ endpoint endpoint::ipv6(const std::string &address, const uint16_t port) {
 }
 
 sockaddr_storage endpoint::get_sockaddr() const {
+  int af = storage.ss.ss_family;
+  socklen_t len = af == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
+  if (getsockname(socket_fd, (sockaddr *) &storage.sa, &len) == -1) {
+    throw std::runtime_error(strerror(errno));
+  }
   return storage.ss;
 }
 
-unique_fd endpoint::listen() {
+shared_fd endpoint::listen() {
   const int af = storage.ss.ss_family;
 
   socket_fd = socket(af, SOCK_STREAM, IPPROTO_TCP);

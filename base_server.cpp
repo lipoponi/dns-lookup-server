@@ -3,8 +3,15 @@
 BaseServer::BaseServer() : listen_fd(-1), epoll_fd(-1) {}
 
 int BaseServer::setup() {
-  endpoint loopback = endpoint::ipv4("127.0.0.1", 15213);
+  endpoint loopback = endpoint::ipv4("127.0.0.1");
   listen_fd = loopback.listen();
+
+  union {
+    sockaddr_storage ss;
+    sockaddr_in sin;
+  } sa = {.ss = loopback.get_sockaddr()};
+
+  std::cout << "Server running on port " << ntohs(sa.sin.sin_port) << std::endl;
 
   epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {

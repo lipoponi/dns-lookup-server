@@ -23,7 +23,7 @@ class BaseServer {
   virtual int connection_handler(int connection_fd) = 0;
 
  private:
-  int listen_fd;
+  shared_fd listen_fd;
   int epoll_fd;
 };
 

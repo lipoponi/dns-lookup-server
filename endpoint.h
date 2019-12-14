@@ -1,16 +1,16 @@
 #ifndef ENDPOINT_H
 #define ENDPOINT_H
 
+#include <arpa/inet.h>
 #include <cassert>
 #include <cstring>
 #include <netinet/in.h>
+#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <arpa/inet.h>
-#include <stdexcept>
 
-typedef int unique_fd; // TODO: stop naeb :)
+#include "shared_fd.h"
 
 class endpoint {
   union {
@@ -19,7 +19,7 @@ class endpoint {
     sockaddr_in sin;
     sockaddr_in6 sin6;
   } storage;
-  unique_fd socket_fd;
+  shared_fd socket_fd;
 
   endpoint(int address_family, const std::string &address, uint16_t port);
 
@@ -29,7 +29,7 @@ class endpoint {
 
   endpoint() = delete;
   [[nodiscard]] sockaddr_storage get_sockaddr() const;
-  unique_fd listen();
+  shared_fd listen();
 };
 
 #endif //ENDPOINT_H
