@@ -1,5 +1,5 @@
-#ifndef DNS_LOOKUP_SERVER__BASE_SERVER_H_
-#define DNS_LOOKUP_SERVER__BASE_SERVER_H_
+#ifndef BASE_SERVER_H
+#define BASE_SERVER_H
 
 #include <arpa/inet.h>
 #include <cstring>
@@ -10,21 +10,24 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <thread>
+#include <unordered_map>
 
 #include "endpoint.h"
 
-class BaseServer {
- public:
-  BaseServer();
-  virtual ~BaseServer() = default;
-
-  int setup();
-  int exec();
-  virtual int connection_handler(int connection_fd) = 0;
-
- private:
+class base_server {
+  const int timeout = 1000;
   shared_fd listen_fd;
-  int epoll_fd;
+  shared_fd epoll_fd;
+  std::unordered_map<std::string, std::thread> threads;
+
+ public:
+  base_server();
+  virtual ~base_server() = default;
+  void setup();
+  void exec();
+  void loop();
+  virtual int connection_handler(int connection_fd) = 0;
 };
 
-#endif //DNS_LOOKUP_SERVER__BASE_SERVER_H_
+#endif //BASE_SERVER_H

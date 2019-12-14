@@ -1,17 +1,18 @@
-#ifndef DNS_LOOKUP_SERVER__GAI_SERVER_H_
-#define DNS_LOOKUP_SERVER__GAI_SERVER_H_
+#ifndef GAI_SERVER_H
+#define GAI_SERVER_H
 
 #include <cstring>
 #include <netdb.h>
 #include <string>
 #include <unordered_map>
+#include <sstream>
 
 #include "base_server.h"
 
-class GaiServer : public BaseServer {
+class gai_server : public base_server {
  public:
-  GaiServer();
-  ~GaiServer() override = default;
+  gai_server();
+  ~gai_server() override = default;
 
   int connection_handler(int connection_fd) override;
 
@@ -22,4 +23,4 @@ class GaiServer : public BaseServer {
   std::unordered_map<int, std::string> buffer_table;
 };
 
-#endif //DNS_LOOKUP_SERVER__GAI_SERVER_H_
+#endif //GAI_SERVER_H

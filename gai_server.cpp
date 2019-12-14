@@ -1,8 +1,8 @@
 #include "gai_server.h"
 
-GaiServer::GaiServer() : BaseServer() {}
+gai_server::gai_server() : base_server() {}
 
-int GaiServer::connection_handler(int connection_fd) {
+int gai_server::connection_handler(int connection_fd) {
   const int BLOCK_SIZE = 1024;
   char buf[BLOCK_SIZE];
 
@@ -22,8 +22,13 @@ int GaiServer::connection_handler(int connection_fd) {
       if (2 <= connection_buffer.size()
           && *(connection_buffer.end() - 2) == '\r'
           && *(connection_buffer.end() - 1) == '\n') {
-        send_address_info(connection_fd, std::string(connection_buffer.begin(), connection_buffer.end() - 2));
+        std::string query(connection_buffer.begin(), connection_buffer.end() - 2);
         connection_buffer.clear();
+
+        std::thread th(&gai_server::send_address_info, this, connection_fd, query);
+        std::thread gh(&gai_server::send_address_info, this, connection_fd, query);
+        th.detach();
+        gh.detach();
       }
     }
   }
@@ -31,7 +36,7 @@ int GaiServer::connection_handler(int connection_fd) {
   return n;
 }
 
-int GaiServer::send_address_info(int connection_fd, const std::string &query) {
+int gai_server::send_address_info(int connection_fd, const std::string &query) {
   struct addrinfo hints, *result_list, *ptr;
 
   memset(&hints, 0, sizeof(struct addrinfo));
@@ -45,6 +50,7 @@ int GaiServer::send_address_info(int connection_fd, const std::string &query) {
   }
 
   char line_separator[2] = {'\r', '\n'};
+  std::string response;
 
   for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
     char *astring = nullptr;
@@ -72,12 +78,12 @@ int GaiServer::send_address_info(int connection_fd, const std::string &query) {
       }
     }
 
-    std::string ip(astring);
+    response.append(astring);
     delete[] astring;
-    send(connection_fd, ip.c_str(), ip.size(), 0);
-    send(connection_fd, line_separator, sizeof(line_separator), 0);
+    response.append("\r\n");
   }
 
-  send(connection_fd, line_separator, sizeof(line_separator), 0);
+  response.append("\r\n");
+  send(connection_fd, response.c_str(), response.size(), 0);
   return 0;
 }

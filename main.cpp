@@ -5,10 +5,14 @@
 #include "gai_server.h"
 
 int main() {
-  BaseServer *server = new GaiServer();
-  int rv = server->setup();
-  while (rv != -1) {
-    rv = server->exec();
+  try {
+    base_server *server = new gai_server();
+    server->setup();
+    server->loop();
+  } catch (std::runtime_error &e) {
+    std::cerr << e.what() << std::endl;
+  } catch (...) {
+    return 1;
   }
 
   return 0;

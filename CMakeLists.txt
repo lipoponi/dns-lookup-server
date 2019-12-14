@@ -10,3 +10,4 @@ set(REQ_FILES
         shared_fd.cpp)
 
 add_executable(dns-lookup-server main.cpp ${REQ_FILES})
+target_link_libraries(dns-lookup-server pthread)
