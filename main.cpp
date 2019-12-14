@@ -6,7 +6,7 @@
 
 int main() {
   BaseServer *server = new GaiServer();
-  int rv = server->setup("localhost", "15213");
+  int rv = server->setup();
   while (rv != -1) {
     rv = server->exec();
   }

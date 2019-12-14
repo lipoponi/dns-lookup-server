@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(REQ_FILES
         base_server.cpp
-        gai_server.cpp)
+        gai_server.cpp
+        endpoint.cpp)
 
 add_executable(dns-lookup-server main.cpp ${REQ_FILES})

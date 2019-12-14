@@ -2,72 +2,21 @@
 
 BaseServer::BaseServer() : listen_fd(-1), epoll_fd(-1) {}
 
-int BaseServer::setup(const std::string &hostname, const std::string &port) {
-  struct addrinfo hints, *result_list, *ptr;
-
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG | AI_NUMERICSERV;
-
-  int rv = getaddrinfo(hostname.c_str(), port.c_str(), &hints, &result_list);
-  if (rv < 0) {
-    std::cerr << gai_strerror(rv) << std::endl;
-    return -1;
-  }
-
-  for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
-    char astring[INET_ADDRSTRLEN];
-    auto *ip_address = (sockaddr_in *) ptr->ai_addr;
-    auto *result = inet_ntop(AF_INET, &ip_address->sin_addr, astring, INET_ADDRSTRLEN);
-    if (result != nullptr) {
-      std::clog << "Trying " << astring << std::endl;
-    }
-
-    int sock_fd = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-    if (sock_fd == -1) {
-      perror("socket");
-      continue;
-    }
-
-    int optval = 1;
-    setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &optval, sizeof(int));
-
-    int bind_rv = bind(sock_fd, ptr->ai_addr, ptr->ai_addrlen);
-    if (bind_rv == 0) {
-      listen_fd = sock_fd;
-      break;
-    }
-
-    perror("bind");
-    close(sock_fd);
-  }
-
-  freeaddrinfo(result_list);
-  if (listen_fd == -1) {
-    std::cerr << "No suitable configurations" << std::endl;
-    return -1;
-  }
-
-  if (listen(listen_fd, 1024) == -1) {
-    perror("listen");
-    close(listen_fd);
-    listen_fd = -1;
-    return -1;
-  }
+int BaseServer::setup() {
+  endpoint loopback = endpoint::ipv4("127.0.0.1", 15213);
+  listen_fd = loopback.listen();
 
   epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
-    perror("epoll_create1");
+    perror("epoll_create");
     close(listen_fd);
     listen_fd = -1;
     return -1;
   }
 
-  struct epoll_event listen_event{.events = EPOLLIN, .data = {.fd = listen_fd}};
-  rv = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &listen_event);
+  struct epoll_event listen_event = {.events = EPOLLIN, .data = {.fd = listen_fd}};
 
-  if (rv == -1) {
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &listen_event) == -1) {
     perror("epoll_ctl");
     close(epoll_fd);
     close(listen_fd);

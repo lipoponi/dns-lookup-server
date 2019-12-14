@@ -11,12 +11,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "endpoint.h"
+
 class BaseServer {
  public:
   BaseServer();
   virtual ~BaseServer() = default;
 
-  int setup(const std::string &hostname, const std::string &port);
+  int setup();
   int exec();
   virtual int connection_handler(int connection_fd) = 0;
 
