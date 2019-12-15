@@ -7,6 +7,7 @@ set(REQ_FILES
         base_server.cpp
         gai_server.cpp
         endpoint.cpp
+        address.cpp
         shared_fd.cpp)
 
 add_executable(dns-lookup-server main.cpp ${REQ_FILES})

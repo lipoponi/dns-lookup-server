@@ -1,41 +1,23 @@
 #include "endpoint.h"
 
-endpoint::endpoint(const int address_family, const std::string &address, const uint16_t port)
-    : storage(), socket_fd(-1) {
-  assert(address_family == AF_INET || address_family == AF_INET6);
-  memset(&storage, 0, sizeof(storage));
-
-  storage.ss.ss_family = address_family;
-  void *buf = address_family == AF_INET ? (void *) &storage.sin.sin_addr : (void *) &storage.sin6.sin6_addr;
-
-  if (inet_pton(address_family, address.c_str(), buf) == -1) {
-    throw std::runtime_error(strerror(errno));
-  }
-
-  if (address_family == AF_INET) {
-    storage.sin.sin_port = htons(port);
-  } else {
-    storage.sin6.sin6_port = htons(port);
-  }
+endpoint endpoint::ipv4(const std::string &str, const uint16_t port) {
+  return endpoint(address::ipv4(str, port));
 }
 
-endpoint endpoint::ipv4(const std::string &address, const uint16_t port) {
-  return endpoint(AF_INET, address, port);
+endpoint endpoint::ipv6(const std::string &str, const uint16_t port) {
+  return endpoint(address::ipv6(str, port));
 }
 
-endpoint endpoint::ipv6(const std::string &address, const uint16_t port) {
-  return endpoint(AF_INET6, address, port);
-}
+endpoint::endpoint(const address &addr)
+    : storage{.ss = addr.get_sockaddr()} {}
 
 sockaddr_storage endpoint::get_sockaddr() const {
-  int af = storage.ss.ss_family;
-  socklen_t len = af == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
-  if (getsockname(socket_fd, (sockaddr *) &storage.sa, &len) == -1) {
-    throw std::runtime_error(strerror(errno));
-  }
   return storage.ss;
 }
 
+address endpoint::get_address() const {
+  return address(storage.ss);
+}
 shared_fd endpoint::listen() {
   const int af = storage.ss.ss_family;
 
@@ -49,12 +31,16 @@ shared_fd endpoint::listen() {
     throw std::runtime_error(strerror(errno));
   }
 
-  const socklen_t len = af == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
+  socklen_t len = af == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
   if (bind(socket_fd, &storage.sa, len) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
   if (::listen(socket_fd, SOMAXCONN) == -1) {
+    throw std::runtime_error(strerror(errno));
+  }
+
+  if (getsockname(socket_fd, (sockaddr *) &storage.sa, &len) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 

@@ -10,7 +10,8 @@ int main() {
     server->setup();
     server->loop();
   } catch (std::runtime_error &e) {
-    std::cerr << e.what() << std::endl;
+    std::cerr << "[FATAL] " << e.what() << std::endl;
+    return 1;
   } catch (...) {
     return 1;
   }

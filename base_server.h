@@ -16,10 +16,8 @@
 #include "endpoint.h"
 
 class base_server {
-  const int timeout = 1000;
   shared_fd listen_fd;
   shared_fd epoll_fd;
-  std::unordered_map<std::string, std::thread> threads;
 
  public:
   base_server();

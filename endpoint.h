@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "address.h"
 #include "shared_fd.h"
 
 class endpoint {
@@ -21,14 +22,14 @@ class endpoint {
   } storage;
   shared_fd socket_fd;
 
-  endpoint(int address_family, const std::string &address, uint16_t port);
-
  public:
-  static endpoint ipv4(const std::string &address, uint16_t port = 0);
-  static endpoint ipv6(const std::string &address, uint16_t port = 0);
+  static endpoint ipv4(const std::string &str, uint16_t port = 0);
+  static endpoint ipv6(const std::string &str, uint16_t port = 0);
 
   endpoint() = delete;
+  explicit endpoint(const address &addr);
   [[nodiscard]] sockaddr_storage get_sockaddr() const;
+  [[nodiscard]] address get_address() const;
   shared_fd listen();
 };
 
