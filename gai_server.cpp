@@ -24,11 +24,7 @@ int gai_server::connection_handler(int connection_fd) {
           && *(connection_buffer.end() - 1) == '\n') {
         std::string query(connection_buffer.begin(), connection_buffer.end() - 2);
         connection_buffer.clear();
-
-        std::thread th(&gai_server::send_address_info, this, connection_fd, query);
-        std::thread gh(&gai_server::send_address_info, this, connection_fd, query);
-        th.detach();
-        gh.detach();
+        send_address_info(connection_fd, query);
       }
     }
   }
@@ -84,6 +80,6 @@ int gai_server::send_address_info(int connection_fd, const std::string &query) {
   }
 
   response.append("\r\n");
-  send(connection_fd, response.c_str(), response.size(), 0);
+  send(connection_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
   return 0;
 }
