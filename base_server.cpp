@@ -1,12 +1,20 @@
 #include "base_server.h"
 
-base_server::base_server() : listen_fd(-1), epoll_fd(-1) {}
+base_server::base_server(const logger &log)
+    : listen_fd(-1), epoll_fd(-1), log(log) {}
+
+base_server::~base_server() {
+  for (auto &con : connections) {
+    eventfd_write(con.first, 2);
+    con.second.join();
+  }
+
+  log.log("Server closed");
+}
 
 void base_server::setup(const std::string &addr, uint16_t port) {
   endpoint loopback = endpoint::ipv4(addr, port);
   listen_fd = loopback.listen();
-
-  std::cout << "[LOG] Server running on " << loopback.get_address().get_full_str() << std::endl;
 
   epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
@@ -18,6 +26,8 @@ void base_server::setup(const std::string &addr, uint16_t port) {
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_fd, &listen_event) == -1) {
     throw std::runtime_error(strerror(errno));
   }
+
+  log.log("Server running on " + loopback.get_address().get_full_str());
 }
 
 void base_server::exec() {
@@ -38,9 +48,6 @@ void base_server::exec() {
       address client_addr(client);
 
       shared_fd event_fd = eventfd(0, 0);
-      if (connections[event_fd].joinable()) {
-        throw std::runtime_error("joinable thread");
-      }
 
       struct epoll_event end_event = {.events = EPOLLIN | EPOLLET, .data = {.fd = event_fd}};
       epoll_ctl(epoll_fd, EPOLL_CTL_ADD, event_fd, &end_event);
@@ -62,18 +69,16 @@ void base_server::loop() {
   }
 }
 
-void base_server::routine_wrapper(const address & client, const shared_fd & connection_fd, const shared_fd & event_fd) {
-
-
-  std::cout << "New [" + std::to_string(connection_fd) + "]: " + client.get_full_str() << std::endl;
+void base_server::routine_wrapper(const address &client, const shared_fd &connection_fd, const shared_fd &event_fd) {
+  log.log("Connected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 
   try {
     connection_routine(connection_fd, event_fd);
-  } catch(std::runtime_error &e) {
-    std::cerr << "(" << client.get_full_str() << "): " << e.what() << std::endl;
+  } catch (std::runtime_error &e) {
+    log.err("{" + std::to_string(connection_fd) + "}: " + e.what());
   }
 
-  std::cout << "Closed connection with " << client.get_full_str() << std::endl;
+  log.log("Disconnected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 }
 
 void base_server::connection_routine(const shared_fd &connection_fd, const shared_fd &event_fd) {
@@ -90,7 +95,7 @@ void base_server::connection_routine(const shared_fd &connection_fd, const share
   std::string buffer;
 
   while (!quit) {
-    int nfds = epoll_wait(efd, events, 1024, 0);
+    int nfds = epoll_wait(efd, events, 1024, -1);
     if (nfds == -1) break;
 
     for (int i = 0; i < nfds; i++) {

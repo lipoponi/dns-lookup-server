@@ -9,13 +9,15 @@
 #include <vector>
 
 #include "base_server.h"
+#include "smart_fd.h"
+#include "logger.h"
 
 class gai_server : public base_server {
  public:
-  gai_server();
-  virtual ~gai_server() = default;
+  explicit gai_server(const logger &log = logger());
+  ~gai_server() override = default;
   int data_handler(const shared_fd &connection_fd, std::string &buffer) override;
-  static int send_address_info(int connection_fd, const std::string &query);
+  int send_address_info(int connection_fd, const std::string &query);
   static std::vector<std::string> get_addresses(const std::string &query);
 };
 

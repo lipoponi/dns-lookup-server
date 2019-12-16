@@ -11,7 +11,7 @@
 #include <sys/types.h>
 
 #include "address.h"
-#include "shared_fd.h"
+#include "smart_fd.h"
 
 class endpoint {
   union {

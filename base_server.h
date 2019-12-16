@@ -15,6 +15,8 @@
 #include <unordered_map>
 
 #include "endpoint.h"
+#include "smart_fd.h"
+#include "logger.h"
 
 class base_server {
   shared_fd listen_fd;
@@ -22,14 +24,12 @@ class base_server {
   std::unordered_map<int, std::thread> connections;
   std::unordered_map<int, shared_fd> conn_fds;
 
+ protected:
+  logger log;
+
  public:
-  base_server();
-  virtual ~base_server() {
-    for (auto &con : connections) {
-      eventfd_write(con.first, 2);
-      con.second.join();
-    }
-  }
+  explicit base_server(const logger &log = logger());
+  virtual ~base_server();
   void setup(const std::string &addr = "127.0.0.1", uint16_t port = 0);
   void exec();
   void loop();

@@ -1,4 +1,4 @@
-#include "shared_fd.h"
+#include "smart_fd.h"
 
 shared_fd::shared_fd(int fd)
     : counter(new int(1)), fd(fd) {
@@ -41,4 +41,22 @@ shared_fd::~shared_fd() {
 
 shared_fd::operator int() const {
   return fd;
+}
+
+weak_fd::weak_fd()
+    : counter(nullptr), fd(-1) {}
+
+weak_fd::weak_fd(const shared_fd &shared)
+    : counter(shared.counter), fd(shared.fd) {}
+
+weak_fd::operator int() const {
+  return fd;
+}
+
+int weak_fd::use_count() const {
+  return *counter;
+}
+
+bool weak_fd::expired() const {
+  return *counter == 0;
 }

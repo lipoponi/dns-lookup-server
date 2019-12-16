@@ -8,7 +8,8 @@ set(REQ_FILES
         gai_server.cpp
         endpoint.cpp
         address.cpp
-        shared_fd.cpp)
+        logger.cpp
+        smart_fd.cpp)
 
 add_executable(dns-lookup-server main.cpp ${REQ_FILES})
 target_link_libraries(dns-lookup-server pthread)
