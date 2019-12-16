@@ -73,15 +73,27 @@ void base_server::routine_wrapper(const address &client, const shared_fd &connec
   log.log("Connected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 
   try {
-    connection_routine(connection_fd, event_fd);
+    count[client.get_str()]++;
+    timeouts[client.get_str()] = resource / count[client.get_str()];
+    connection_routine(connection_fd, event_fd, timeouts[client.get_str()]);
   } catch (std::runtime_error &e) {
     log.err("{" + std::to_string(connection_fd) + "}: " + e.what());
+  }
+
+  count[client.get_str()]--;
+  if (count[client.get_str()] == 0) {
+    count.erase(client.get_str());
+    timeouts.erase(client.get_str());
+  } else {
+    timeouts[client.get_str()] = resource / count[client.get_str()];
   }
 
   log.log("Disconnected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 }
 
-void base_server::connection_routine(const shared_fd &connection_fd, const shared_fd &event_fd) {
+void base_server::connection_routine(const shared_fd &connection_fd, const shared_fd &event_fd, std::time_t &timeout) {
+  std::time_t start_time = std::time(nullptr);
+
   shared_fd efd = epoll_create1(0);
 
   struct epoll_event conn = {.events = EPOLLIN, .data = {.fd = connection_fd}};
@@ -95,8 +107,17 @@ void base_server::connection_routine(const shared_fd &connection_fd, const share
   std::string buffer;
 
   while (!quit) {
-    int nfds = epoll_wait(efd, events, 1024, -1);
-    if (nfds == -1) break;
+    std::time_t now = std::time(nullptr);
+    int current_timeout = std::max(std::time_t(0), timeout - (now - start_time) * 1000);
+
+    int nfds = epoll_wait(efd, events, 1024, current_timeout);
+    if (nfds == -1) {
+      throw std::runtime_error(strerror(errno));
+    }
+
+    if (nfds == 0) {
+      break;
+    }
 
     for (int i = 0; i < nfds; i++) {
       int fd = events[i].data.fd;
