@@ -6,21 +6,17 @@
 #include <string>
 #include <unordered_map>
 #include <sstream>
+#include <vector>
 
 #include "base_server.h"
 
 class gai_server : public base_server {
  public:
   gai_server();
-  ~gai_server() override = default;
-
-  int connection_handler(int connection_fd) override;
-
- private:
-  int send_address_info(int connection_fd, const std::string &query);
-
- private:
-  std::unordered_map<int, std::string> buffer_table;
+  virtual ~gai_server() = default;
+  int data_handler(const shared_fd &connection_fd, std::string &buffer) override;
+  static int send_address_info(int connection_fd, const std::string &query);
+  static std::vector<std::string> get_addresses(const std::string &query);
 };
 
 #endif //GAI_SERVER_H
