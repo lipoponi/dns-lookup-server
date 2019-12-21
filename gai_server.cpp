@@ -3,10 +3,9 @@
 gai_server::gai_server(const logger &log) : base_server(log) {}
 
 int gai_server::data_handler(const shared_fd &connection_fd, std::string &buffer) {
-  const int BLOCK_SIZE = 1024;
-  char buf[BLOCK_SIZE];
+  char buf[MAX_RECV_SIZE];
 
-  int n = recv(connection_fd, buf, BLOCK_SIZE, 0);
+  int n = recv(connection_fd, buf, MAX_RECV_SIZE, 0);
 
   if (n == -1) {
     throw std::runtime_error(strerror(errno));
@@ -14,6 +13,9 @@ int gai_server::data_handler(const shared_fd &connection_fd, std::string &buffer
     buffer.reserve(buffer.size() + n);
     for (int i = 0; i < n; i++) {
       buffer.push_back(buf[i]);
+      if (MAX_BUFFER_SIZE <= buffer.size()) {
+        throw std::runtime_error("Buffer overflow");
+      }
       if (2 <= buffer.size() && *(buffer.end() - 2) == '\r' && *(buffer.end() - 1) == '\n') {
         std::string query(buffer.begin(), buffer.end() - 2);
         buffer.clear();

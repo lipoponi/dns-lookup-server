@@ -12,6 +12,9 @@
 #include "smart_fd.h"
 
 class gai_server : public base_server {
+  static const size_t MAX_RECV_SIZE = 4096;
+  static const size_t MAX_BUFFER_SIZE = 4096;
+
  public:
   explicit gai_server(const logger &log = logger());
   ~gai_server() override = default;
