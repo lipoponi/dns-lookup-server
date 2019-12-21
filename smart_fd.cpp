@@ -1,62 +1,47 @@
+#include <iostream>
+#include <cstring>
 #include "smart_fd.h"
 
 shared_fd::shared_fd(int fd)
-    : counter(new int(1)), fd(fd) {
+    : data(new block) {
   assert(fd == -1 || fcntl(fd, F_GETFD) != -1);
+  data->counter = 1;
+  data->fd = fd;
 }
 
 shared_fd::shared_fd(const shared_fd &other)
-    : counter(other.counter), fd(other.fd) {
-  (*counter)++;
+    : data(other.data) {
+  data->counter++;
 }
 
 shared_fd &shared_fd::operator=(const shared_fd &other) {
   if (this != &other) {
-    (*counter)--;
+    data->counter--;
 
-    if (*counter == 0) {
-      delete counter;
-      if (fd != -1) {
-        close(fd);
+    if (data->counter == 0) {
+      if (data->fd != -1 && close(data->fd) == -1) {
+        throw std::runtime_error(std::to_string(data->fd) + " " + strerror(errno));
       }
+      delete data;
     }
 
-    counter = other.counter;
-    fd = other.fd;
-    (*counter)++;
+    data = other.data;
+    data->counter++;
   }
 
   return *this;
 }
 
 shared_fd::~shared_fd() {
-  (*counter)--;
-  if (*counter == 0) {
-    delete counter;
-    if (fd != -1) {
-      close(fd);
+  data->counter--;
+  if (data->counter == 0) {
+    if (data->fd != -1 && close(data->fd) == -1) {
+      throw std::runtime_error(std::to_string(data->fd) + " " + strerror(errno));
     }
+    delete data;
   }
 }
 
 shared_fd::operator int() const {
-  return fd;
-}
-
-weak_fd::weak_fd()
-    : counter(nullptr), fd(-1) {}
-
-weak_fd::weak_fd(const shared_fd &shared)
-    : counter(shared.counter), fd(shared.fd) {}
-
-weak_fd::operator int() const {
-  return fd;
-}
-
-int weak_fd::use_count() const {
-  return *counter;
-}
-
-bool weak_fd::expired() const {
-  return *counter == 0;
+  return data->fd;
 }
