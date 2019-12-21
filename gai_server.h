@@ -17,7 +17,7 @@ class gai_server : public base_server {
   explicit gai_server(const logger &log = logger());
   ~gai_server() override = default;
   int data_handler(const shared_fd &connection_fd, std::string &buffer) override;
-  int send_address_info(int connection_fd, const std::string &query);
+  int send_address_info(const shared_fd &connection_fd, const std::string &query);
   static std::vector<std::string> get_addresses(const std::string &query);
 };
 

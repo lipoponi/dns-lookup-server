@@ -27,7 +27,7 @@ int gai_server::data_handler(const shared_fd &connection_fd, std::string &buffer
   return n;
 }
 
-int gai_server::send_address_info(int connection_fd, const std::string &query) {
+int gai_server::send_address_info(const shared_fd &connection_fd, const std::string &query) {
   std::vector<std::string> result;
 
   try {
