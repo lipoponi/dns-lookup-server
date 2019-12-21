@@ -28,7 +28,7 @@ enum routine_event {
 };
 
 class base_server {
-  static const size_t MAX_CONN_PER_HOST = 1;
+  static const size_t MAX_CONN_PER_HOST = 32;
   static const std::time_t MAX_TIME_PER_CONN = 5 * 60;
 
   shared_fd listen_fd;

@@ -70,8 +70,12 @@ void base_server::exec() {
       host_active_conn_cnt[client_host_id]++;
       conn_host[event_fd] = client_host_id;
       active_conn_threads.emplace(std::piecewise_construct,
-          std::forward_as_tuple(event_fd),
-          std::forward_as_tuple(&base_server::routine_wrapper, this, client_addr, connection_fd, event_fd));
+                                  std::forward_as_tuple(event_fd),
+                                  std::forward_as_tuple(&base_server::routine_wrapper,
+                                                        this,
+                                                        client_addr,
+                                                        connection_fd,
+                                                        event_fd));
     } else {
       active_conn_threads[current].join();
       active_conn_threads.erase(current);
@@ -120,11 +124,10 @@ void base_server::connection_routine(const shared_fd &connection_fd, int event_f
   while (!abort.load() && now - start_time < MAX_TIME_PER_CONN) {
     std::time_t timeout = (MAX_TIME_PER_CONN - (now - start_time)) * 1000;
 
-    if (epoll_wait(epfd, events, 1, timeout) == -1) {
+    int rv = epoll_wait(epfd, events, 1, timeout);
+    if (rv == -1) {
       throw std::runtime_error(strerror(errno));
-    }
-
-    if (data_handler(connection_fd, buffer) == 0) {
+    } else if (rv == 0 || data_handler(connection_fd, buffer) == 0) {
       break;
     }
 
