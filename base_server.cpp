@@ -4,9 +4,9 @@ base_server::base_server(const logger &log)
     : listen_fd(-1), epoll_fd(-1), log(log) {}
 
 base_server::~base_server() {
-  for (auto &con : connections) {
-    eventfd_write(con.first, 2);
-    con.second.join();
+  for (auto &conn : active_conn_threads) {
+    eventfd_write(conn.first, RE_ABORT);
+    conn.second.join();
   }
 
   log.log("Server closed");
@@ -31,34 +31,42 @@ void base_server::setup(const std::string &addr, uint16_t port) {
 }
 
 void base_server::exec() {
-  struct epoll_event events[1024];
+  struct epoll_event events[MAX_EPOLL_EVENTS];
 
-  int nfds = epoll_wait(epoll_fd, events, 1024, -1);
+  int nfds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
   if (nfds == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
   for (int i = 0; i < nfds; i++) {
-    int current_fd = events[i].data.fd;
+    int current = events[i].data.fd;
 
-    if (current_fd == listen_fd) {
+    if (current == listen_fd) {
       sockaddr_storage client{};
       socklen_t len = sizeof(client);
       shared_fd connection_fd = accept(listen_fd, (sockaddr *) &client, &len);
       address client_addr(client);
+      id_t host_id = host_ids[client_addr.get_str()];
+
+      if (MAX_CONN_PER_HOST <= host_active_conn_cnt[host_id]) {
+        continue;
+      }
 
       shared_fd event_fd = eventfd(0, 0);
+      struct epoll_event finish_event = {.events = EPOLLIN | EPOLLET, .data = {.fd = event_fd}};
+      epoll_ctl(epoll_fd, EPOLL_CTL_ADD, event_fd, &finish_event);
 
-      struct epoll_event end_event = {.events = EPOLLIN | EPOLLET, .data = {.fd = event_fd}};
-      epoll_ctl(epoll_fd, EPOLL_CTL_ADD, event_fd, &end_event);
-
-      conn_fds[event_fd] = event_fd;
-      connections[event_fd] = std::thread(&base_server::routine_wrapper, this, client_addr, connection_fd, event_fd);
+      host_active_conn_cnt[host_id]++;
+      conn_host[event_fd] = host_id;
+      std::thread routine(&base_server::routine_wrapper, this, client_addr, connection_fd, event_fd);
+      active_conn_threads[event_fd] = std::move(routine);
     } else {
-      connections[current_fd].join();
-      connections.erase(current_fd);
-      conn_fds.erase((int) current_fd);
-      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, current_fd, nullptr);
+      active_conn_threads[current].join();
+      active_conn_threads.erase(current);
+      host_active_conn_cnt[conn_host[current]]--;
+      conn_host.erase(current);
+
+      epoll_ctl(epoll_fd, EPOLL_CTL_DEL, current, nullptr);
     }
   }
 }
@@ -73,63 +81,49 @@ void base_server::routine_wrapper(const address &client, const shared_fd &connec
   log.log("Connected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 
   try {
-    count[client.get_str()]++;
-    timeouts[client.get_str()] = resource / count[client.get_str()];
-    connection_routine(connection_fd, event_fd, timeouts[client.get_str()]);
+    connection_routine(connection_fd, event_fd);
   } catch (std::runtime_error &e) {
     log.err("{" + std::to_string(connection_fd) + "}: " + e.what());
-  }
-
-  count[client.get_str()]--;
-  if (count[client.get_str()] == 0) {
-    count.erase(client.get_str());
-    timeouts.erase(client.get_str());
-  } else {
-    timeouts[client.get_str()] = resource / count[client.get_str()];
   }
 
   log.log("Disconnected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 }
 
-void base_server::connection_routine(const shared_fd &connection_fd, const shared_fd &event_fd, std::time_t &timeout) {
+void base_server::connection_routine(const shared_fd &connection_fd, const shared_fd &event_fd) {
   std::time_t start_time = std::time(nullptr);
+  std::time_t now = start_time;
 
-  shared_fd efd = epoll_create1(0);
-
+  shared_fd epfd = epoll_create1(0);
   struct epoll_event conn = {.events = EPOLLIN, .data = {.fd = connection_fd}};
+  epoll_ctl(epfd, EPOLL_CTL_ADD, connection_fd, &conn);
   struct epoll_event cancel = {.events = EPOLLIN | EPOLLET, .data = {.fd = event_fd}};
+  epoll_ctl(epfd, EPOLL_CTL_ADD, event_fd, &cancel);
 
-  epoll_ctl(efd, EPOLL_CTL_ADD, connection_fd, &conn);
-  epoll_ctl(efd, EPOLL_CTL_ADD, event_fd, &cancel);
-
-  struct epoll_event events[1024];
-  bool quit = false;
+  struct epoll_event events[MAX_EPOLL_EVENTS];
+  bool abort = false;
   std::string buffer;
 
-  while (!quit) {
-    std::time_t now = std::time(nullptr);
-    int current_timeout = std::max(std::time_t(0), timeout - (now - start_time) * 1000);
+  while (!abort && (now = std::time(nullptr)) - start_time < MAX_TIME_PER_CONN) {
+    std::time_t timeout = (MAX_TIME_PER_CONN - (now - start_time)) * 1000;
 
-    int nfds = epoll_wait(efd, events, 1024, current_timeout);
+    int nfds = epoll_wait(epfd, events, MAX_EPOLL_EVENTS, timeout);
     if (nfds == -1) {
       throw std::runtime_error(strerror(errno));
     }
 
-    if (nfds == 0) {
-      break;
-    }
-
     for (int i = 0; i < nfds; i++) {
       int fd = events[i].data.fd;
+
       if (fd == connection_fd) {
         int rv = data_handler(connection_fd, buffer);
-        if (rv == 0) quit = true;
+        abort |= (rv == 0);
       } else if (fd == event_fd) {
         eventfd_t val;
-        eventfd_read(fd, &val);
-        quit = (val == 2);
+        eventfd_read(event_fd, &val);
+        abort |= (val == RE_ABORT);
       }
     }
   }
-  eventfd_write(event_fd, 1);
+
+  eventfd_write(event_fd, RE_DONE);
 }

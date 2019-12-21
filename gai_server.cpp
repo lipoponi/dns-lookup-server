@@ -10,7 +10,8 @@ int gai_server::data_handler(const shared_fd &connection_fd, std::string &buffer
 
   if (n == -1) {
     throw std::runtime_error(strerror(errno));
-  } else if (0 < n) {
+  } else {
+    buffer.reserve(buffer.size() + n);
     for (int i = 0; i < n; i++) {
       buffer.push_back(buf[i]);
       if (2 <= buffer.size() && *(buffer.end() - 2) == '\r' && *(buffer.end() - 1) == '\n') {
@@ -66,9 +67,12 @@ std::vector<std::string> gai_server::get_addresses(const std::string &query) {
   }
 
   for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
-    address current(*(sockaddr_storage *) ptr->ai_addr);
+    auto *storage = (sockaddr_storage *)ptr->ai_addr;
+    address current(*storage);
     result.push_back(current.get_str());
   }
+
+  freeaddrinfo(result_list);
 
   return result;
 }
