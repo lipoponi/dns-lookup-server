@@ -27,20 +27,17 @@ int gai_server::data_handler(const shared_fd &connection_fd, std::string &buffer
   return n;
 }
 
-int gai_server::send_address_info(const shared_fd &connection_fd, const std::string &query) {
-  std::vector<std::string> result;
-
-  try {
-    result = get_addresses(query);
-  } catch (std::runtime_error &e) {
-    log.err("{" + std::to_string(connection_fd) + "}: " + query + " - " + e.what());
-  }
-
+void gai_server::send_address_info(const shared_fd &connection_fd, const std::string &query) {
   const std::string line_separator("\r\n");
   std::string response;
 
-  for (auto &addr : result) {
-    response.append(addr).append(line_separator);
+  try {
+    std::vector<std::string> result = get_addresses(query);
+    for (auto &addr : result) {
+      response.append(addr).append(line_separator);
+    }
+  } catch (std::runtime_error &e) {
+    log.err("{" + std::to_string(connection_fd) + "}: " + query + " - " + e.what());
   }
 
   response.append(line_separator);
@@ -48,9 +45,7 @@ int gai_server::send_address_info(const shared_fd &connection_fd, const std::str
     throw std::runtime_error(strerror(errno));
   }
 
-  log.log("{" + std::to_string(connection_fd) + "} <-: Sent " + std::to_string(result.size()) + " lines");
-
-  return 0;
+  log.log("{" + std::to_string(connection_fd) + "} <-: Sent " + std::to_string(response.size()) + " bytes");
 }
 
 std::vector<std::string> gai_server::get_addresses(const std::string &query) {

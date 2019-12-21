@@ -98,15 +98,16 @@ void base_server::routine_wrapper(const address &client, const shared_fd &connec
   log.log("Connected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 
   try {
-    connection_routine(connection_fd, event_fd);
+    connection_routine(connection_fd);
   } catch (std::runtime_error &e) {
     log.err("{" + std::to_string(connection_fd) + "}: " + e.what());
   }
 
+  eventfd_write(event_fd, RE_DONE);
   log.log("Disconnected {" + std::to_string(connection_fd) + "}: " + client.get_full_str());
 }
 
-void base_server::connection_routine(const shared_fd &connection_fd, int event_fd) {
+void base_server::connection_routine(const shared_fd &connection_fd) {
   std::time_t start_time = std::time(nullptr);
   std::time_t now;
 
@@ -133,6 +134,4 @@ void base_server::connection_routine(const shared_fd &connection_fd, int event_f
 
     now = std::time(nullptr);
   }
-
-  eventfd_write(event_fd, RE_DONE);
 }

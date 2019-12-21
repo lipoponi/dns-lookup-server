@@ -50,7 +50,7 @@ class base_server {
   void exec();
   void loop();
   void routine_wrapper(const address &client, const shared_fd &connection_fd, int event_fd);
-  void connection_routine(const shared_fd &connection_fd, int event_fd);
+  void connection_routine(const shared_fd &connection_fd);
   virtual int data_handler(const shared_fd &connection_fd, std::string &buffer) = 0;
 };
 
