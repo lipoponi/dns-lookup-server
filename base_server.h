@@ -1,8 +1,11 @@
 #ifndef BASE_SERVER_H
 #define BASE_SERVER_H
 
+#include <algorithm>
 #include <arpa/inet.h>
+#include <atomic>
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <netdb.h>
 #include <string>
@@ -13,13 +16,10 @@
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
-#include <ctime>
-#include <algorithm>
-#include <atomic>
 
 #include "endpoint.h"
-#include "smart_fd.h"
 #include "logger.h"
+#include "smart_fd.h"
 
 #define MAX_EPOLL_EVENTS 1024
 

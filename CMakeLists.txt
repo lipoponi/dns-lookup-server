@@ -10,12 +10,12 @@ IF (CMAKE_BUILD_TYPE_UP STREQUAL "DEBUG")
 ENDIF ()
 
 set(REQ_FILES
-        base_server.cpp
-        gai_server.cpp
-        endpoint.cpp
         address.cpp
+        base_server.cpp
+        endpoint.cpp
+        gai_server.cpp
         logger.cpp
         smart_fd.cpp)
-
 add_executable(dns-lookup-server main.cpp ${REQ_FILES})
+
 target_link_libraries(dns-lookup-server pthread)

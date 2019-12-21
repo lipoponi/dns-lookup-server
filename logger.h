@@ -1,9 +1,10 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include <string>
-#include <memory>
+#include <cstring>
 #include <ctime>
+#include <memory>
+#include <string>
 
 #include "smart_fd.h"
 

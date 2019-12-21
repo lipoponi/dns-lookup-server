@@ -62,7 +62,7 @@ std::vector<std::string> gai_server::get_addresses(const std::string &query) {
   }
 
   for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
-    auto *storage = (sockaddr_storage *)ptr->ai_addr;
+    auto *storage = (sockaddr_storage *) ptr->ai_addr;
     address current(*storage);
     result.push_back(current.get_str());
   }

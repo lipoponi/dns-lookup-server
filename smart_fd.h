@@ -1,12 +1,9 @@
 #ifndef SMART_FD_H
 #define SMART_FD_H
 
-#include <unistd.h>
 #include <cassert>
 #include <fcntl.h>
-
-class shared_fd;
-class weak_fd;
+#include <unistd.h>
 
 class shared_fd {
   struct block {

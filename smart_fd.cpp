@@ -1,5 +1,3 @@
-#include <iostream>
-#include <cstring>
 #include "smart_fd.h"
 
 shared_fd::shared_fd(int fd)
@@ -19,8 +17,8 @@ shared_fd &shared_fd::operator=(const shared_fd &other) {
     data->counter--;
 
     if (data->counter == 0) {
-      if (data->fd != -1 && close(data->fd) == -1) {
-        throw std::runtime_error(std::to_string(data->fd) + " " + strerror(errno));
+      if (data->fd != -1) {
+        close(data->fd);
       }
       delete data;
     }
@@ -35,8 +33,8 @@ shared_fd &shared_fd::operator=(const shared_fd &other) {
 shared_fd::~shared_fd() {
   data->counter--;
   if (data->counter == 0) {
-    if (data->fd != -1 && close(data->fd) == -1) {
-      throw std::runtime_error(std::to_string(data->fd) + " " + strerror(errno));
+    if (data->fd != -1) {
+      close(data->fd);
     }
     delete data;
   }

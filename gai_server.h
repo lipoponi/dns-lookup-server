@@ -5,12 +5,11 @@
 #include <netdb.h>
 #include <string>
 #include <unordered_map>
-#include <sstream>
 #include <vector>
 
 #include "base_server.h"
-#include "smart_fd.h"
 #include "logger.h"
+#include "smart_fd.h"
 
 class gai_server : public base_server {
  public:

@@ -1,4 +1,3 @@
-#include <cstring>
 #include "logger.h"
 
 logger::logger(int log_fd, int err_fd)

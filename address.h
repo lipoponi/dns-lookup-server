@@ -1,13 +1,13 @@
 #ifndef ADDRESS_H
 #define ADDRESS_H
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string>
+#include <arpa/inet.h>
 #include <cassert>
 #include <cstring>
+#include <netinet/in.h>
 #include <stdexcept>
-#include <arpa/inet.h>
+#include <string>
+#include <sys/socket.h>
 
 class address {
   union {
