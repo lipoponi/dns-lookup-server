@@ -40,7 +40,7 @@ shared_fd endpoint::listen() {
     throw std::runtime_error(strerror(errno));
   }
 
-  if (getsockname(socket_fd, (sockaddr *) &storage.sa, &len) == -1) {
+  if (getsockname(socket_fd, &storage.sa, &len) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
