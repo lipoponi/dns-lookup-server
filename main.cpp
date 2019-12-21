@@ -6,14 +6,14 @@
 #include "logger.h"
 
 int main() {
-  logger log(STDOUT_FILENO, STDERR_FILENO);
+  logger console(STDOUT_FILENO, STDERR_FILENO);
 
   try {
-    std::unique_ptr<base_server> server = std::make_unique<gai_server>(log);
+    std::unique_ptr<base_server> server = std::make_unique<gai_server>(console);
     server->setup("127.0.0.1", 1337);
     server->loop();
   } catch (std::runtime_error &e) {
-    log.err(e.what());
+    console.err(e.what());
     return 1;
   } catch (...) {
     return 1;
