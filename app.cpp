@@ -52,6 +52,8 @@ void app::clean_query_threads() {
 }
 
 id_t app::add_connection(const address &client, unique_fd &&connection_fd) {
+  ip_conn_count[client.get_str()]++;
+
   std::lock_guard<std::mutex> lg(conn_m);
 
   id_t new_connection_id = ++last_connection_id;
@@ -88,7 +90,9 @@ void app::send_by_id(id_t connection_id, const std::string &content) {
 void app::remove_connection(id_t connection_id) {
   std::lock_guard<std::mutex> lg(conn_m);
 
-  std::string client_address = connections[connection_id].client.get_full_str();
+  auto client_info = connections[connection_id].client;
+  ip_conn_count[client_info.get_str()]--;
+  std::string client_address = client_info.get_full_str();
 
   if (epoll_ctl(epoll_fd.fd(), EPOLL_CTL_DEL, connections[connection_id].fd.fd(), nullptr) == -1) {
     throw std::runtime_error(strerror(errno));
@@ -119,6 +123,12 @@ void app::step() {
         }
 
         address client_info(client);
+
+        if (MAX_CONN_PER_IP <= ip_conn_count[client_info.get_str()]) {
+          log.log("Ignored " + client_info.get_full_str());
+          continue;
+        }
+
         add_connection(client_info, std::move(connection_fd));
       } else if (current != UINT64_MAX) {
         bool rv = data_handler(current);

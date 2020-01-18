@@ -39,6 +39,7 @@ class app {
   static const size_t MAX_EPOLL_EVENTS = 1024;
   static const size_t MAX_RECV_SIZE = 4096;
   static const size_t MAX_QUERY_LEN = 1024;
+  static const size_t MAX_CONN_PER_IP = 32;
 
   logger log;
   unique_fd listen_fd;
@@ -46,6 +47,7 @@ class app {
   unique_fd wakeup_fd;
   std::mutex conn_m;
   std::unordered_map<id_t, connection_t> connections;
+  std::unordered_map<std::string, size_t> ip_conn_count;
   id_t last_connection_id;
   std::list<query_t> queries;
 
