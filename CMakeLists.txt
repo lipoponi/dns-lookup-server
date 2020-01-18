@@ -11,11 +11,10 @@ ENDIF ()
 
 set(REQ_FILES
         address.cpp
-        base_server.cpp
+        app.cpp
         endpoint.cpp
-        gai_server.cpp
         logger.cpp
-        smart_fd.cpp)
+        unique_fd.cpp)
 add_executable(dns-lookup-server main.cpp ${REQ_FILES})
 
 target_link_libraries(dns-lookup-server pthread)

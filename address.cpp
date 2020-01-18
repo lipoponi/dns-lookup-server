@@ -1,5 +1,10 @@
 #include "address.h"
 
+address::address()
+    : storage() {
+  memset(&storage, 0, sizeof(storage));
+}
+
 address::address(const int address_family, const std::string &str, uint16_t port)
     : storage() {
   assert(address_family == AF_INET || address_family == AF_INET6);

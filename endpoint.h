@@ -11,7 +11,7 @@
 #include <sys/types.h>
 
 #include "address.h"
-#include "smart_fd.h"
+#include "unique_fd.h"
 
 class endpoint {
   union {
@@ -20,7 +20,7 @@ class endpoint {
     sockaddr_in sin;
     sockaddr_in6 sin6;
   } storage;
-  shared_fd socket_fd;
+  unique_fd socket_fd;
 
  public:
   static endpoint ipv4(const std::string &str, uint16_t port = 0);
@@ -30,7 +30,7 @@ class endpoint {
   explicit endpoint(const address &addr);
   [[nodiscard]] sockaddr_storage get_sockaddr() const;
   [[nodiscard]] address get_address() const;
-  shared_fd listen();
+  unique_fd listen();
 };
 
 #endif //ENDPOINT_H

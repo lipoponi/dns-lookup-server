@@ -5,8 +5,7 @@
 #include <ctime>
 #include <memory>
 #include <string>
-
-#include "smart_fd.h"
+#include <unistd.h>
 
 class logger {
   int log_fd;

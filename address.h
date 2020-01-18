@@ -23,7 +23,7 @@ class address {
   static address ipv4(const std::string &str, uint16_t port);
   static address ipv6(const std::string &str, uint16_t port);
 
-  address() = delete;
+  address();
   explicit address(sockaddr_storage ss);
   [[nodiscard]] sockaddr_storage get_sockaddr() const;
   [[nodiscard]] std::string get_str() const;

@@ -18,31 +18,31 @@ sockaddr_storage endpoint::get_sockaddr() const {
 address endpoint::get_address() const {
   return address(storage.ss);
 }
-shared_fd endpoint::listen() {
+unique_fd endpoint::listen() {
   const int af = storage.ss.ss_family;
 
-  socket_fd = socket(af, SOCK_STREAM, IPPROTO_TCP);
-  if (socket_fd == -1) {
+  socket_fd = unique_fd(socket(af, SOCK_STREAM, IPPROTO_TCP));
+  if (socket_fd.fd() == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
   int reuseaddr = 1;
-  if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr)) == -1) {
+  if (setsockopt(socket_fd.fd(), SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr)) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
   socklen_t len = af == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
-  if (bind(socket_fd, &storage.sa, len) == -1) {
+  if (bind(socket_fd.fd(), &storage.sa, len) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
-  if (::listen(socket_fd, SOMAXCONN) == -1) {
+  if (::listen(socket_fd.fd(), SOMAXCONN) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
-  if (getsockname(socket_fd, &storage.sa, &len) == -1) {
+  if (getsockname(socket_fd.fd(), &storage.sa, &len) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
-  return socket_fd;
+  return std::move(socket_fd);
 }
