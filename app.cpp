@@ -105,7 +105,7 @@ void app::remove_connection(id_t connection_id) {
 void app::step() {
   struct epoll_event events[MAX_EPOLL_EVENTS];
 
-  int n_events = epoll_wait(epoll_fd.fd(), events, MAX_EPOLL_EVENTS, -1);
+  int n_events = epoll_wait(epoll_fd.fd(), events, MAX_EPOLL_EVENTS, 100);
   if (n_events == -1) {
     throw std::runtime_error(strerror(errno));
   }
@@ -233,8 +233,11 @@ std::vector<std::string> app::get_addresses(const std::string &domain) {
   }
 
   for (ptr = result_list; ptr != nullptr; ptr = ptr->ai_next) {
-    auto *storage = (sockaddr_storage *) ptr->ai_addr;
-    address current(*storage);
+    struct sockaddr_storage storage{};
+    memset(&storage, 0, sizeof(storage));
+
+    memcpy(&storage, ptr->ai_addr, ptr->ai_addrlen);
+    address current(storage);
     result.push_back(current.get_str());
   }
 
