@@ -52,7 +52,9 @@ id_t app::add_connection(const address &client, unique_fd &&connection_fd) {
   id_t new_connection_id = ++last_connection_id;
 
   struct epoll_event event = {.events = EPOLLIN, .data = {.u64 = new_connection_id}};
-  epoll_ctl(epoll_fd.fd(), EPOLL_CTL_ADD, connection_fd.fd(), &event);
+  if (epoll_ctl(epoll_fd.fd(), EPOLL_CTL_ADD, connection_fd.fd(), &event) == -1) {
+    throw std::runtime_error(strerror(errno));
+  }
 
   connection_t g{.fd = std::move(connection_fd), .client = client};
   connections.emplace(new_connection_id, std::move(g));
@@ -81,7 +83,9 @@ void app::remove_connection(id_t connection_id) {
 
   std::string client_address = connections[connection_id].client.get_full_str();
 
-  epoll_ctl(epoll_fd.fd(), EPOLL_CTL_DEL, connections[connection_id].fd.fd(), nullptr);
+  if (epoll_ctl(epoll_fd.fd(), EPOLL_CTL_DEL, connections[connection_id].fd.fd(), nullptr) == -1) {
+    throw std::runtime_error(strerror(errno));
+  }
   connections.erase(connection_id);
 
   log.log("Disconnected {" + std::to_string(connection_id) + "}: " + client_address);
@@ -100,21 +104,25 @@ void app::step() {
   for (int i = 0; i < n_events; i++) {
     auto current = events[i].data.u64;
 
-    if (current == 0) {
-      struct sockaddr_storage client{};
-      socklen_t len = sizeof(client);
-      unique_fd connection_fd(accept(listen_fd.fd(), (sockaddr *) &client, &len));
-      if (connection_fd.fd() == -1) {
-        throw std::runtime_error(strerror(errno));
-      }
+    try {
+      if (current == 0) {
+        struct sockaddr_storage client{};
+        socklen_t len = sizeof(client);
+        unique_fd connection_fd(accept(listen_fd.fd(), (sockaddr *) &client, &len));
+        if (connection_fd.fd() == -1) {
+          throw std::runtime_error(strerror(errno));
+        }
 
-      address client_info(client);
-      add_connection(client_info, std::move(connection_fd));
-    } else {
-      bool rv = data_handler(current, query_collector);
-      if (!rv) {
-        remove_connection(current);
+        address client_info(client);
+        add_connection(client_info, std::move(connection_fd));
+      } else {
+        bool rv = data_handler(current, query_collector);
+        if (!rv) {
+          remove_connection(current);
+        }
       }
+    } catch (std::exception &e) {
+      log.err("{" + std::to_string(current) + "}: " + e.what());
     }
   }
 
@@ -164,7 +172,7 @@ void app::query_handler(const std::string &query, const std::vector<id_t> &recei
       response.append(address);
       response.append("\r\n");
     }
-  } catch (std::runtime_error &e) {
+  } catch (std::exception &e) {
     log.err("'" + query + "': " + e.what());
   }
 

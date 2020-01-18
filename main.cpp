@@ -11,7 +11,7 @@ int main() {
     app serv(console);
     serv.setup("127.0.0.1", 1337);
     serv.run();
-  } catch (std::runtime_error &e) {
+  } catch (std::exception &e) {
     console.err(e.what());
     return 1;
   } catch (...) {
