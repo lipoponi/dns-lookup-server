@@ -8,7 +8,9 @@
 #include <stdexcept>
 #include <string>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <thread>
+#include <queue>
 #include <unordered_map>
 #include <vector>
 
@@ -24,6 +26,8 @@ class app {
     unique_fd fd;
     address client;
     std::string buffer;
+    std::queue<std::string> query_queue;
+    bool busy = false;
   };
   struct query_t {
     query_t() : done(false) {}
@@ -39,6 +43,7 @@ class app {
   logger log;
   unique_fd listen_fd;
   unique_fd epoll_fd;
+  unique_fd wakeup_fd;
   std::mutex conn_m;
   std::unordered_map<id_t, connection_t> connections;
   id_t last_connection_id;
@@ -50,7 +55,7 @@ class app {
   void remove_connection(id_t connection_id);
 
   void step();
-  bool data_handler(id_t connection_id, query_collector_t &query_collector);
+  bool data_handler(id_t connection_id);
   void query_handler(const std::string &query, const std::vector<id_t> &receivers, std::atomic<bool> *done);
   static std::vector<std::string> get_addresses(const std::string &domain);
 

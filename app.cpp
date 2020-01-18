@@ -14,13 +14,18 @@ void app::setup(const std::string &addr, uint16_t port) {
   endpoint epoint = endpoint::ipv4(addr, port);
   listen_fd = epoint.listen();
 
+  wakeup_fd = unique_fd(eventfd(0, 0));
   epoll_fd = unique_fd(epoll_create1(0));
   if (epoll_fd.fd() == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
   struct epoll_event listen_event = {.events = EPOLLIN, .data = {.u64 = 0}};
+  struct epoll_event wakeup_event = {.events = EPOLLIN | EPOLLET, .data = {.u64 = UINT64_MAX}};
   if (epoll_ctl(epoll_fd.fd(), EPOLL_CTL_ADD, listen_fd.fd(), &listen_event) == -1) {
+    throw std::runtime_error(strerror(errno));
+  }
+  if (epoll_ctl(epoll_fd.fd(), EPOLL_CTL_ADD, wakeup_fd.fd(), &wakeup_event) == -1) {
     throw std::runtime_error(strerror(errno));
   }
 
@@ -76,6 +81,8 @@ void app::send_by_id(id_t connection_id, const std::string &content) {
   } else {
     log.log("Sent " + std::to_string(content.size()) + " bytes to {" + std::to_string(connection_id) + "}");
   }
+
+  connections[connection_id].busy = false;
 }
 
 void app::remove_connection(id_t connection_id) {
@@ -99,8 +106,6 @@ void app::step() {
     throw std::runtime_error(strerror(errno));
   }
 
-  query_collector_t query_collector;
-
   for (int i = 0; i < n_events; i++) {
     auto current = events[i].data.u64;
 
@@ -115,14 +120,30 @@ void app::step() {
 
         address client_info(client);
         add_connection(client_info, std::move(connection_fd));
-      } else {
-        bool rv = data_handler(current, query_collector);
+      } else if (current != UINT64_MAX) {
+        bool rv = data_handler(current);
         if (!rv) {
           remove_connection(current);
         }
       }
     } catch (std::exception &e) {
       log.err("{" + std::to_string(current) + "}: " + e.what());
+    }
+  }
+
+  query_collector_t query_collector;
+
+  {
+    std::lock_guard<std::mutex> lg(conn_m);
+
+    for (auto&[id, conn] : connections) {
+      if (!conn.busy && !conn.query_queue.empty()) {
+        std::string query = conn.query_queue.front();
+        conn.query_queue.pop();
+        conn.busy = true;
+
+        query_collector[query].push_back(id);
+      }
     }
   }
 
@@ -134,7 +155,8 @@ void app::step() {
   }
 }
 
-bool app::data_handler(id_t connection_id, query_collector_t &query_collector) {
+bool app::data_handler(id_t connection_id) {
+  std::lock_guard<std::mutex> lg(conn_m);
   char buf[MAX_RECV_SIZE];
 
   connection_t &connection = connections[connection_id];
@@ -156,7 +178,7 @@ bool app::data_handler(id_t connection_id, query_collector_t &query_collector) {
       buffer.clear();
 
       log.log("{" + std::to_string(connection_id) + "}->: " + query);
-      query_collector[query].push_back(connection_id);
+      connection.query_queue.push(query);
     }
   }
 
@@ -182,6 +204,9 @@ void app::query_handler(const std::string &query, const std::vector<id_t> &recei
   }
 
   done->store(true);
+
+  uint64_t val = 1;
+  write(wakeup_fd.fd(), &val, sizeof(val));
 }
 
 std::vector<std::string> app::get_addresses(const std::string &domain) {
