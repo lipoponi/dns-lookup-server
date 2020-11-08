@@ -1,21 +1,21 @@
-## О проекте
-Мини-сервер обрабатывающий запросы _DNS lookup_. Простыми словами: на вход подаются доменные имена, сервер возвращает список _ip_ адресов связанных с данным доменом. К серверу одновременно может подключаться множество клиентов, но есть ограничение по количеству активных соединений с одного _ip_. Также есть ограничение 1024 байта на один запрос. В основе логики лежит системная функция `getaddrinfo`.
+## About
+Simple DNS proxy-server that redirects DNS requests to system call `getaddrinfo`. The protocol is simple: server accepts continuous list of domain names and sends the lists of ip addresses that relate to above domain names. The server can handle multiple clients simultaneously and there are limits such as: active connections per ip and maximal request size.
 
-## Протокол взаимодействия
- - __Клиент__ присылает доменные имена разбитые `CRLF`
- - __Сервер__ отвечает _ip_ адресами разделенными `CRLF`
+## Protocol described
+ - __Client__ sends domain names separated by `CRLF`
+ - __Server__ responds with _ip_ addresses separated by `CRLF`
 
-Для подключения отлично подходит _telnet_ в построчном режиме.
+The _telnet_ is good choice for testing.
  
-## Сборка
-Сборка проекта возможна только на _linux_ системах, так как в коде активно используются системные вызовы.
+## Build
+Due to usage of syscalls, build is only possible on _linux_ systems.
 ```shell-script
 mkdir -p cmake-build && cd cmake-build
 cmake -G "Unix Makefiles" .. && make
 ```
 
-## Запуск
-Сервер будет доступен по адресу __127.0.0.1:1337__
+## Run
+Server will be available at __127.0.0.1:1337__
 ```shell-script
 cmake-build/dns-lookup-server
 ```
